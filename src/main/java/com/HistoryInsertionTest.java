@@ -1,16 +1,18 @@
 package com;
 
-import com.model.DateReadHistory;
+import com.model.Person;
 import org.hibernate.HibernateException;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.cfg.ImprovedNamingStrategy;
 import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.service.ServiceRegistry;
 import org.hibernate.service.ServiceRegistryBuilder;
 
-import java.util.Date;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Map;
 
 public class HistoryInsertionTest {
@@ -22,7 +24,7 @@ public class HistoryInsertionTest {
             Configuration configuration = new Configuration();
             configuration.configure();
             serviceRegistry = new ServiceRegistryBuilder().applySettings(configuration.getProperties()).buildServiceRegistry();
-            sessionFactory = configuration.buildSessionFactory(serviceRegistry);
+            sessionFactory = configuration.setNamingStrategy(ImprovedNamingStrategy.INSTANCE).buildSessionFactory(serviceRegistry);
         } catch (Throwable ex) {
             throw new ExceptionInInitializerError(ex);
         }
@@ -33,9 +35,33 @@ public class HistoryInsertionTest {
     }
 
     public static void main(final String[] args) throws Exception {
-        saveObject(new DateReadHistory(new Date()));
 
-        getManagedEntities();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+
+        try {
+            Person fredFlinstone = new Person("Fred", "Flinstone", dateFormat.parse("04/30/1980"));
+            Person wilmaFlinstone = new Person("Wilma", "Flinstone", dateFormat.parse("1/28/1985"));
+            Person barnyRubble = new Person("Barny", "Rubble", dateFormat.parse("6/18/1982"));
+            Person bettyRubble = new Person("Betty", "Rubble", dateFormat.parse("2/23/1987"));
+
+            saveOrUpdateObject(fredFlinstone);
+            saveOrUpdateObject(wilmaFlinstone);
+            saveOrUpdateObject(barnyRubble);
+            saveOrUpdateObject(bettyRubble);
+
+            wilmaFlinstone.setLastName("Bedrock");
+            bettyRubble.setLastName("Bedrock");
+            saveOrUpdateObject(wilmaFlinstone);
+            saveOrUpdateObject(bettyRubble);
+
+            deleteObject(fredFlinstone);
+            deleteObject(wilmaFlinstone);
+            deleteObject(barnyRubble);
+            deleteObject(bettyRubble);
+
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
     }
 
     private static void getManagedEntities() {
@@ -57,11 +83,22 @@ public class HistoryInsertionTest {
         }
     }
 
-    public static void saveObject(Object object) {
+    public static void saveOrUpdateObject(Object object) {
         final Session session = getSession();
         try {
             session.beginTransaction(); //pretend it's a shared session
-            session.save(object);
+            session.saveOrUpdate(object);
+            session.getTransaction().commit();
+        } finally {
+            session.close();
+        }
+    }
+
+    public static void deleteObject(Object object) {
+        final Session session = getSession();
+        try {
+            session.beginTransaction(); //pretend it's a shared session
+            session.delete(object);
             session.getTransaction().commit();
         } finally {
             session.close();
